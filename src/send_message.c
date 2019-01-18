@@ -339,6 +339,14 @@ gint send_message_smtp_full(PrefsAccount *ac_prefs, GSList *to_list, FILE *fp, g
 			smtp_session->pass = NULL;
 		}
 
+		if (ac_prefs->clientid) {
+			smtp_session->clientid = g_strdup(ac_prefs->clientid);
+			if (!smtp_session->clientid) {
+				session_destroy(session);
+				return -1;
+			}
+		}
+
 		send_dialog = send_progress_dialog_create();
 		send_dialog->session = session;
 		smtp_session->dialog = send_dialog;
@@ -489,6 +497,10 @@ static gint send_recv_message(Session *session, const gchar *msg, gpointer data)
 		g_snprintf(buf, sizeof(buf), _("Sending EHLO..."));
 		state_str = _("Authenticating");
 		statuswindow_print_all(_("Sending message..."));
+		break;
+	case SMTP_CLIENTID:
+		g_snprintf(buf, sizeof(buf), _("Sending CLIENTID..."));
+		state_str = _("Authenticating");
 		break;
 	case SMTP_AUTH:
 		g_snprintf(buf, sizeof(buf), _("Authenticating..."));

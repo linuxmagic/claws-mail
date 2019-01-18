@@ -4074,6 +4074,22 @@ static gint imap_cmd_login(IMAPSession *session,
 		}
 	}
 
+	if (imap_has_capability(session, "CLIENTID") && session->folder->account->clientid) {
+		log_print(LOG_PROTOCOL, "IMAP4> Sending CLIENTID: [%s] TYPE: [UUID] to %s\n",
+				session->folder->account->clientid, SESSION(session)->server);
+		r = imap_threaded_clientid(session->folder, "UUID",
+				session->folder->account->clientid);
+		if (r != MAILIMAP_NO_ERROR) {
+			imap_handle_error(SESSION(session), NULL, r);
+			log_print(LOG_PROTOCOL, "IMAP4< Error performing CLIENTID with %s\n",
+					SESSION(session)->server);
+			return r;
+		} else {
+			log_print(LOG_PROTOCOL, "IMAP4< CLIENTID successful with %s\n",
+					SESSION(session)->server);
+		}
+	}
+
 	log_print(LOG_PROTOCOL, "IMAP4> Logging %s to %s using %s\n", 
 			user,
 			SESSION(session)->server,

@@ -64,6 +64,7 @@ typedef enum
 	SMTP_HELO,
 	SMTP_EHLO,
 	SMTP_STARTTLS,
+	SMTP_CLIENTID,
 	SMTP_FROM,
 	SMTP_AUTH,
 	SMTP_AUTH_LOGIN_USER,
@@ -93,6 +94,7 @@ struct _SMTPSession
 
 	gchar *user;
 	gchar *pass;
+	gchar *clientid;
 
 	gchar *from;
 	GSList *to_list;
@@ -117,6 +119,8 @@ struct _SMTPSession
 #ifdef USE_GNUTLS
 	gboolean tls_init_done;
 #endif
+	gboolean has_clientid;
+	gboolean clientid_done;
 };
 
 Session *smtp_session_new	(void *prefs_account);

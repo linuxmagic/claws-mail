@@ -116,8 +116,10 @@ typedef struct BasicPage
 	GtkWidget *mailcmd_entry;
 	GtkWidget *uid_label;
 	GtkWidget *pass_label;
+	GtkWidget *clientid_label;
 	GtkWidget *uid_entry;
 	GtkWidget *pass_entry;
+	GtkWidget *clientid_entry;
 	GtkWidget *auto_configure_btn;
 	GtkWidget *auto_configure_cancel_btn;
 	GtkWidget *auto_configure_lbl;
@@ -434,6 +436,9 @@ static PrefParam basic_param[] = {
 
 	{"password", NULL, &tmp_ac_prefs.passwd, P_PASSWORD,
 	 &basic_page.pass_entry, prefs_set_data_from_entry, prefs_set_entry},
+
+	{"clientid", NULL, &tmp_ac_prefs.clientid, P_STRING,
+	 &basic_page.clientid_entry, prefs_set_data_from_entry, prefs_set_entry},
 
 	{NULL, NULL, NULL, P_OTHER, NULL, NULL, NULL}
 };
@@ -1012,8 +1017,10 @@ static void basic_create_widget_func(PrefsPage * _page,
 	GtkWidget *mailcmd_entry;
 	GtkWidget *uid_label;
 	GtkWidget *pass_label;
+	GtkWidget *clientid_label;
 	GtkWidget *uid_entry;
 	GtkWidget *pass_entry;
+	GtkWidget *clientid_entry;
 	GtkWidget *auto_configure_btn;
 	GtkWidget *auto_configure_cancel_btn;
 	GtkWidget *auto_configure_lbl;
@@ -1158,7 +1165,7 @@ static void basic_create_widget_func(PrefsPage * _page,
 	protocol_optmenu->no_imap_warn_icon = no_imap_warn_icon;
 	protocol_optmenu->no_imap_warn_label = no_imap_warn_label;
 
-	serv_table = gtk_table_new (6, 4, FALSE);
+	serv_table = gtk_table_new (7, 4, FALSE);
 	gtk_widget_show (serv_table);
 	gtk_box_pack_start (GTK_BOX (vbox2), serv_table, FALSE, FALSE, 0);
 	gtk_table_set_row_spacings (GTK_TABLE (serv_table), VSPACING_NARROW);
@@ -1216,6 +1223,8 @@ static void basic_create_widget_func(PrefsPage * _page,
 	pass_entry = gtk_entry_new ();
 	gtk_widget_show (pass_entry);
 	gtk_widget_set_size_request (pass_entry, DEFAULT_ENTRY_WIDTH, -1);
+	clientid_entry = gtk_entry_new();
+	gtk_widget_show (clientid_entry);
 #ifndef GENERIC_UMPC
 	gtk_table_attach (GTK_TABLE (serv_table), uid_entry, 1, 2, 7, 8,
 			  GTK_EXPAND | GTK_SHRINK | GTK_FILL,
@@ -1224,11 +1233,17 @@ static void basic_create_widget_func(PrefsPage * _page,
 	gtk_table_attach (GTK_TABLE (serv_table), pass_entry, 3, 4, 7, 8,
 			  GTK_EXPAND | GTK_SHRINK | GTK_FILL,
 			  GTK_EXPAND | GTK_SHRINK | GTK_FILL, 0, 0);
+	gtk_table_attach (GTK_TABLE (serv_table), clientid_entry, 1, 4, 8, 9,
+			  GTK_EXPAND | GTK_SHRINK | GTK_FILL,
+			  GTK_EXPAND | GTK_SHRINK | GTK_FILL, 0, 0);
 #else
 	gtk_table_attach (GTK_TABLE (serv_table), uid_entry, 1, 4, 7, 8,
 			  GTK_EXPAND | GTK_SHRINK | GTK_FILL,
 			  GTK_EXPAND | GTK_SHRINK | GTK_FILL, 0, 0);
 	gtk_table_attach (GTK_TABLE (serv_table), pass_entry, 1, 4, 8, 9,
+			  GTK_EXPAND | GTK_SHRINK | GTK_FILL,
+			  GTK_EXPAND | GTK_SHRINK | GTK_FILL, 0, 0);
+	gtk_table_attach (GTK_TABLE (serv_table), clientid_entry, 1, 4, 9, 10,
 			  GTK_EXPAND | GTK_SHRINK | GTK_FILL,
 			  GTK_EXPAND | GTK_SHRINK | GTK_FILL, 0, 0);
 #endif
@@ -1276,6 +1291,17 @@ static void basic_create_widget_func(PrefsPage * _page,
 			  GTK_FILL, 0, 0, 0);
 	gtk_misc_set_alignment (GTK_MISC (mailcmd_label), 1, 0.5);
 /*  	gtk_table_set_row_spacing (GTK_TABLE (serv_table), 2, 0); */
+
+	clientid_label = gtk_label_new (_("ClientID"));
+	gtk_widget_show (clientid_label);
+#ifndef GENERIC_UMPC
+	gtk_table_attach (GTK_TABLE (serv_table), clientid_label, 0, 1, 8, 9,
+			GTK_FILL, 0, 0, 0);
+#else
+	gtk_table_attach (GTK_TABLE (serv_table), clientid_label, 0, 1, 9, 10,
+			GTK_FILL, 0, 0, 0);
+#endif
+	gtk_misc_set_alignment (GTK_MISC (clientid_label), 1, 0.5);
 
 	uid_label = gtk_label_new (_("User ID"));
 	gtk_widget_show (uid_label);
@@ -1326,6 +1352,8 @@ static void basic_create_widget_func(PrefsPage * _page,
 	page->pass_label       = pass_label;
 	page->uid_entry        = uid_entry;
 	page->pass_entry       = pass_entry;
+	page->clientid_label   = clientid_label;
+	page->clientid_entry   = clientid_entry;
 	page->auto_configure_btn = auto_configure_btn;
 	page->auto_configure_cancel_btn = auto_configure_cancel_btn;
 	page->auto_configure_lbl = auto_configure_lbl;
@@ -1361,6 +1389,12 @@ static void basic_create_widget_func(PrefsPage * _page,
 		}
 	} else
 		prefs_set_dialog(basic_param);
+
+	if (!g_uuid_string_is_valid(gtk_entry_get_text(GTK_ENTRY(basic_page.clientid_entry)))) {
+		gchar *uuid = g_uuid_string_random();
+		gtk_entry_set_text(GTK_ENTRY(basic_page.clientid_entry), uuid);
+		g_free(uuid);
+	}
 
 	page->vbox = vbox1;
 
@@ -2935,6 +2969,12 @@ static gint prefs_basic_apply(void)
 		alertpanel_error(_("mail command is not entered."));
 		return -1;
 	}
+
+	if (!g_uuid_string_is_valid(gtk_entry_get_text(GTK_ENTRY(basic_page.clientid_entry)))) {
+		gchar *uuid = g_uuid_string_random();
+		gtk_entry_set_text(GTK_ENTRY(basic_page.clientid_entry), uuid);
+		g_free(uuid);
+	}
 	
 	if (protocol == A_IMAP4 || protocol == A_NNTP) 
 		old_id = g_strdup_printf("#%s/%s",
@@ -4270,15 +4310,19 @@ static void prefs_account_protocol_changed(GtkComboBox *combobox, gpointer data)
 					   5, 0);
 		gtk_widget_show(basic_page.uid_label);
 		gtk_widget_show(basic_page.pass_label);
+		gtk_widget_show(basic_page.clientid_label);
 		gtk_widget_show(basic_page.uid_entry);
 		gtk_widget_show(basic_page.pass_entry);
+		gtk_widget_show(basic_page.clientid_entry);
   		gtk_table_set_row_spacing (GTK_TABLE (basic_page.serv_table),
 					   7, VSPACING_NARROW);
 
 		gtk_widget_set_sensitive(basic_page.uid_label,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_label, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_label, TRUE);
 		gtk_widget_set_sensitive(basic_page.uid_entry,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_entry, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_entry, FALSE);
 
 		/* update userid/passwd sensitive state */
 
@@ -4370,15 +4414,19 @@ static void prefs_account_protocol_changed(GtkComboBox *combobox, gpointer data)
 					   5, VSPACING_NARROW);
 		gtk_widget_hide(basic_page.uid_label);
 		gtk_widget_hide(basic_page.pass_label);
+		gtk_widget_hide(basic_page.clientid_label);
 		gtk_widget_hide(basic_page.uid_entry);
 		gtk_widget_hide(basic_page.pass_entry);
+		gtk_widget_hide(basic_page.clientid_entry);
   		gtk_table_set_row_spacing (GTK_TABLE (basic_page.serv_table),
 					   7, 0);
 
 		gtk_widget_set_sensitive(basic_page.uid_label,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_label, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_label, TRUE);
 		gtk_widget_set_sensitive(basic_page.uid_entry,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_entry, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_entry, FALSE);
 		gtk_widget_hide(receive_page.pop3_frame);
 		gtk_widget_hide(receive_page.imap_frame);
 		gtk_widget_show(receive_page.local_frame);
@@ -4477,15 +4525,19 @@ static void prefs_account_protocol_changed(GtkComboBox *combobox, gpointer data)
 					   5, 0);
 		gtk_widget_show(basic_page.uid_label);
 		gtk_widget_show(basic_page.pass_label);
+		gtk_widget_show(basic_page.clientid_label);
 		gtk_widget_show(basic_page.uid_entry);
 		gtk_widget_show(basic_page.pass_entry);
+		gtk_widget_show(basic_page.clientid_entry);
   		gtk_table_set_row_spacing (GTK_TABLE (basic_page.serv_table),
 					   7, VSPACING_NARROW);
 
 		gtk_widget_set_sensitive(basic_page.uid_label,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_label, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_label, TRUE);
 		gtk_widget_set_sensitive(basic_page.uid_entry,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_entry, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_entry, FALSE);
 		gtk_widget_hide(receive_page.pop3_frame);
 		gtk_widget_show(receive_page.imap_frame);
 		gtk_widget_hide(receive_page.local_frame);
@@ -4578,15 +4630,19 @@ static void prefs_account_protocol_changed(GtkComboBox *combobox, gpointer data)
 					   5, 0);
 		gtk_widget_hide(basic_page.uid_label);
 		gtk_widget_hide(basic_page.pass_label);
+		gtk_widget_hide(basic_page.clientid_label);
 		gtk_widget_hide(basic_page.uid_entry);
 		gtk_widget_hide(basic_page.pass_entry);
+		gtk_widget_hide(basic_page.clientid_entry);
   		gtk_table_set_row_spacing (GTK_TABLE (basic_page.serv_table),
 					   7, VSPACING_NARROW);
 
 		gtk_widget_set_sensitive(basic_page.uid_label,  FALSE);
 		gtk_widget_set_sensitive(basic_page.pass_label, FALSE);
+		gtk_widget_set_sensitive(basic_page.clientid_label, FALSE);
 		gtk_widget_set_sensitive(basic_page.uid_entry,  FALSE);
 		gtk_widget_set_sensitive(basic_page.pass_entry, FALSE);
+		gtk_widget_set_sensitive(basic_page.clientid_entry, FALSE);
 		gtk_widget_set_sensitive(receive_page.pop3_frame, FALSE);
 		gtk_widget_hide(receive_page.pop3_frame);
 		gtk_widget_hide(receive_page.imap_frame);
@@ -4676,15 +4732,19 @@ static void prefs_account_protocol_changed(GtkComboBox *combobox, gpointer data)
 					   5, 0);
 		gtk_widget_show(basic_page.uid_label);
 		gtk_widget_show(basic_page.pass_label);
+		gtk_widget_show(basic_page.clientid_label);
 		gtk_widget_show(basic_page.uid_entry);
 		gtk_widget_show(basic_page.pass_entry);
+		gtk_widget_show(basic_page.clientid_entry);
   		gtk_table_set_row_spacing (GTK_TABLE (basic_page.serv_table),
 					   7, VSPACING_NARROW);
 
 		gtk_widget_set_sensitive(basic_page.uid_label,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_label, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_label, TRUE);
 		gtk_widget_set_sensitive(basic_page.uid_entry,  TRUE);
 		gtk_widget_set_sensitive(basic_page.pass_entry, TRUE);
+		gtk_widget_set_sensitive(basic_page.clientid_entry, FALSE);
 		gtk_widget_set_sensitive(receive_page.pop3_frame, TRUE);
 		gtk_widget_show(receive_page.pop3_frame);
 		gtk_widget_hide(receive_page.imap_frame);
@@ -4752,8 +4812,10 @@ static void prefs_account_nntpauth_toggled(GtkToggleButton *button,
 	auth = gtk_toggle_button_get_active (button);
 	gtk_widget_set_sensitive(basic_page.uid_label,  auth);
 	gtk_widget_set_sensitive(basic_page.pass_label, auth);
+	gtk_widget_set_sensitive(basic_page.clientid_label, auth);
 	gtk_widget_set_sensitive(basic_page.uid_entry,  auth);
 	gtk_widget_set_sensitive(basic_page.pass_entry, auth);
+	gtk_widget_set_sensitive(basic_page.clientid_entry, FALSE);
 	gtk_widget_set_sensitive(basic_page.nntpauth_onconnect_checkbtn, auth);
 }
 
@@ -4770,6 +4832,8 @@ static void prefs_account_mailcmd_toggled(GtkToggleButton *button,
 	gtk_widget_set_sensitive(basic_page.smtpserv_label, !use_mailcmd);
 	gtk_widget_set_sensitive(basic_page.uid_entry,  !use_mailcmd);
 	gtk_widget_set_sensitive(basic_page.pass_entry, !use_mailcmd);
+	gtk_widget_set_sensitive(basic_page.clientid_label, !use_mailcmd);
+	gtk_widget_set_sensitive(basic_page.clientid_entry, FALSE);
 }
 
 static void prefs_account_filter_on_recv_toggled(GtkToggleButton *button,

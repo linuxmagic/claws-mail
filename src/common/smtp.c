@@ -83,10 +83,13 @@ Session *smtp_session_new(void *prefs_account)
 #ifdef USE_GNUTLS
 	session->tls_init_done             = FALSE;
 #endif
+	session->has_clientid              = FALSE;
+	session->clientid_done             = FALSE;
 
 	session->hostname                  = NULL;
 	session->user                      = NULL;
 	session->pass                      = NULL;
+	session->clientid                  = NULL;
 
 	session->from                      = NULL;
 	session->to_list                   = NULL;
@@ -115,6 +118,7 @@ static void smtp_session_destroy(Session *session)
 	g_free(smtp_session->hostname);
 	g_free(smtp_session->user);
 	g_free(smtp_session->pass);
+	g_free(smtp_session->clientid);
 	g_free(smtp_session->from);
 
 	g_free(smtp_session->send_data);
@@ -153,10 +157,31 @@ gint smtp_from(SMTPSession *session)
 	return SM_OK;
 }
 
+static gint smtp_clientid(SMTPSession *session)
+{
+	cm_return_val_if_fail(session->clientid != NULL, SM_ERROR);
+	gchar buf[MESSAGEBUFSIZE];
+
+	session->state = SMTP_CLIENTID;
+
+	g_snprintf(buf, sizeof(buf), "CLIENTID UUID %s", session->clientid);
+
+	if (session_send_msg(SESSION(session), SESSION_MSG_NORMAL, buf) < 0)
+		return SM_ERROR;
+	log_print(LOG_PROTOCOL, "ESMTP> CLIENTID UUID %s\n", session->clientid);
+
+	return SM_OK;
+}
+
 static gint smtp_auth(SMTPSession *session)
 {
 
 	cm_return_val_if_fail(session->user != NULL, SM_ERROR);
+
+	// if we haven't performed clientid and it is supported
+	if (!session->clientid_done && session->has_clientid) {
+		return smtp_clientid(session);
+	}
 
 	session->state = SMTP_AUTH;
 
@@ -184,6 +209,25 @@ static gint smtp_auth(SMTPSession *session)
 	}
 
 	return SM_OK;
+}
+
+static gint smtp_clientid_recv(SMTPSession *session, const gchar *msg)
+{
+	// is this a 250 response?
+	if (!strncmp(msg, "250 ", 4)) {
+		session->clientid_done = TRUE;
+		// the only way we can end up in smtp_clientid_recv is if
+		// smtp_auth was called and it redirected to smtp_clientid
+		// which adjusted the session state to SMTP_CLIENTID which
+		// resulted in this function being called. So the natural
+		// next step is to resume smtp_auth() after setting the
+		// session->clientid_done variable to TRUE to prevent
+		// a second CLIENTID command from being issued.
+		return smtp_auth(session);
+	}
+	// otherwise it's not a 250 response and we cannot cotinue
+	// because the CLIENTID command failed for some reason
+	return SM_ERROR;
 }
 
 static gint smtp_auth_recv(SMTPSession *session, const gchar *msg)
@@ -330,6 +374,10 @@ static gint smtp_ehlo_recv(SMTPSession *session, const gchar *msg)
 		if (g_ascii_strncasecmp(p, "STARTTLS", 8) == 0) {
 			p += 9;
 			session->avail_auth_type |= SMTPAUTH_TLS_AVAILABLE;
+		}
+		if (g_ascii_strncasecmp(p, "CLIENTID", 8) == 0) {
+			p += 9;
+			session->has_clientid = TRUE;
 		}
 		return SM_OK;
 	} else if ((msg[0] == '1' || msg[0] == '2' || msg[0] == '3') &&
@@ -626,6 +674,9 @@ static gint smtp_session_recv_msg(Session *session, const gchar *msg)
 		smtp_session->tls_init_done = TRUE;
 		ret = smtp_ehlo(smtp_session);
 #endif
+		break;
+	case SMTP_CLIENTID:
+		ret = smtp_clientid_recv(smtp_session, msg);
 		break;
 	case SMTP_AUTH:
 		ret = smtp_auth_recv(smtp_session, msg);

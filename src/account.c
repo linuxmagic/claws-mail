@@ -221,13 +221,25 @@ void account_read_config_all(void)
 
 	/* read config data from file */
 	cur_account = NULL;
+	gboolean modified = FALSE;
 	for (cur = ac_label_list; cur != NULL; cur = cur->next) {
 		ac_prefs = prefs_account_new();
 		prefs_account_read_config(ac_prefs, (gchar *)cur->data);
+		// if we don't have a valid clientid generate one and save it
+		if (ac_prefs && (!ac_prefs->clientid || !*ac_prefs->clientid ||
+					!g_uuid_string_is_valid(ac_prefs->clientid))) {
+			ac_prefs->clientid = g_uuid_string_random();
+			modified = TRUE;
+			if (!ac_prefs->clientid) {
+				return;
+			}
+		}
 		account_list = g_list_append(account_list, ac_prefs);
 		if (ac_prefs->is_default)
 			cur_account = ac_prefs;
 	}
+	if (modified)
+		account_write_config_all();
 	/* if default is not set, assume first account as default */
 	if (!cur_account && account_list) {
 		ac_prefs = (PrefsAccount *)account_list->data;

@@ -136,6 +136,7 @@ typedef struct _AccountTemplate {
 	gchar *recvserver;
 	gchar *recvuser;
 	gchar *recvpass;
+	gchar *clientid;
 	gchar *imapdir;
 	gboolean subsonly;
 	gchar *mboxfile;
@@ -175,6 +176,8 @@ static PrefParam template_params[] = {
 	 &tmpl.recvuser, P_STRING, NULL, NULL, NULL},
 	{"recvpass", "",
 	 &tmpl.recvpass, P_STRING, NULL, NULL, NULL},
+	{"clientid", "",
+	 &tmpl.clientid, P_STRING, NULL, NULL, NULL},
 	{"imapdir", "",
 	 &tmpl.imapdir, P_STRING, NULL, NULL, NULL},
 	{"subsonly", "TRUE",
@@ -759,6 +762,8 @@ static gboolean wizard_write_config(WizardWindow *wizard)
 				gtk_entry_get_text(GTK_ENTRY(wizard->recv_username)));
 	prefs_account->passwd = g_strdup(
 				gtk_entry_get_text(GTK_ENTRY(wizard->recv_password)));
+
+	prefs_account->clientid = g_uuid_string_random();
 
 	prefs_account->smtp_userid = g_strdup(
 				gtk_entry_get_text(GTK_ENTRY(wizard->smtp_username)));

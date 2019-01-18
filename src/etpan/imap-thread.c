@@ -864,6 +864,70 @@ int imap_threaded_subscribe(Folder * folder, const char * mb,
 	return result.error;
 }
 
+struct clientid_param {
+   mailimap * imap;
+   const char * clientid;
+   const char * type;
+   const char * server;
+};
+
+struct clientid_result {
+   int error;
+};
+
+static void clientid_run(struct etpan_thread_op * op)
+{
+   struct clientid_param * param;
+   struct clientid_result * result;
+   int r;
+#ifdef DISABLE_LOG_DURING_LOGIN
+   int old_debug;
+#endif
+
+   param = op->param;
+   result = op->result;
+
+   CHECK_IMAP();
+
+#ifdef DISABLE_LOG_DURING_LOGIN
+   old_debug = mailstream_debug;
+   mailstream_debug = 0;
+#endif
+    r = mailimap_clientid(param->imap,
+            param->type, param->clientid);
+#ifdef DISABLE_LOG_DURING_LOGIN
+   mailstream_debug = old_debug;
+#endif
+
+   result->error = r;
+   if (param->imap->imap_response)
+       imap_logger_cmd(0, param->imap->imap_response, strlen(param->imap->imap_response));
+   debug_print("imap clientid run - end %i\n", r);
+}
+
+int imap_threaded_clientid(Folder * folder,
+           const char * type, const char * clientid)
+{
+   struct clientid_param param;
+   struct clientid_result result;
+
+   debug_print("imap clientid - begin\n");
+
+   param.imap = get_imap(folder);
+   param.type = type;
+   param.clientid = clientid;
+   if (folder && folder->account)
+       param.server = folder->account->recv_server;
+   else
+       param.server = NULL;
+
+   threaded_run(folder, &param, &result, clientid_run);
+
+   debug_print("imap clientid - end\n");
+
+   return result.error;
+}
+
 struct login_param {
 	mailimap * imap;
 	const char * login;
